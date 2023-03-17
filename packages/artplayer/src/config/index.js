@@ -29,6 +29,7 @@ export default {
         'textTracks',
         'videoTracks',
         'volume',
+        'progress',
     ],
     methods: ['addTextTrack', 'canPlayType', 'load', 'play', 'pause'],
     events: [

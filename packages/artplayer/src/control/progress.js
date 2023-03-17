@@ -11,16 +11,57 @@ export function getPosFromEvent(art, event) {
     return { second, time, width, percentage };
 }
 
+/**
+ * 是否允许设置当前时间，
+ * 当设置观看范围或者禁止前进或后退时进行判断
+ * @param art
+ * @param seekTime
+ * @returns {boolean}
+ */
+function isAllowChangeCurrentTime(art, seekTime) {
+    if (art.option.progress) {
+        if (typeof art.option.progress.allowDrag === 'undefined') {
+            return true;
+        } else {
+            if (art.option.progress.allowDrag === 'all') {
+                return true;
+            } else if (art.option.progress.allowDrag === 'forward') {
+                if (seekTime - art.currentTime < 0) {
+                    return false;
+                } else {
+                    return true;
+                }
+            } else if (art.option.progress.allowDrag === 'back') {
+                if (seekTime - art.currentTime > 0) {
+                    return false;
+                } else {
+                    return true;
+                }
+            } else if (art.option.progress.allowDrag === 'none') {
+                return false;
+            }
+        }
+    } else {
+        // 没有配置参数就是可以自由拖拽
+        return true;
+    }
+}
 export function setCurrentTime(art, event) {
+    // console.log(`---setCurrentTime---`)
+    let { second, percentage } = getPosFromEvent(art, event);
+    // 翻转时计算逻辑不同
     if (art.isRotate) {
-        const percentage = event.touches[0].clientY / art.height;
-        const second = percentage * art.duration;
+        percentage = event.touches[0].clientY / art.height;
+        second = percentage * art.duration;
+    }
+    if (isAllowChangeCurrentTime(art, second)) {
         art.emit('setBar', 'played', percentage);
         art.seek = second;
     } else {
-        const { second, percentage } = getPosFromEvent(art, event);
-        art.emit('setBar', 'played', percentage);
-        art.seek = second;
+        // 阻止后触发回调，可以在回调中提醒或其他操作
+        if (art.option.progress && art.option.progress.onDragRefuse) {
+            art.option.progress.onDragRefuse(art);
+        }
     }
 }
 
@@ -175,15 +216,15 @@ export default function progress(options) {
 
                     proxy(document, 'mousemove', (event) => {
                         if (isDroging) {
-                            const { second, percentage } = getPosFromEvent(art, event);
+                            const { percentage } = getPosFromEvent(art, event);
                             setBar('played', percentage);
-                            art.seek = second;
                         }
                     });
 
-                    proxy(document, 'mouseup', () => {
+                    proxy(document, 'mouseup', (event) => {
                         if (isDroging) {
                             isDroging = false;
+                            setCurrentTime(art, event);
                         }
                     });
                 }
